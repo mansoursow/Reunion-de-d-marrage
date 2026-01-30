@@ -1,8 +1,13 @@
 "use client";
-import { useRef } from "react";
 
+import React, { useRef, useState } from "react";
 import Image from "next/image";
-import { motion, useScroll, useTransform } from "framer-motion";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useMotionValueEvent,
+} from "framer-motion";
 import {
   ArrowDown,
   CheckCircle2,
@@ -13,6 +18,9 @@ import {
   Users,
   Cpu,
   BadgeCheck,
+  Menu,
+  X,
+  User,
 } from "lucide-react";
 
 // ✅ ajuste ce chemin selon ton projet
@@ -113,7 +121,8 @@ function Section({
             </motion.p>
           ) : null}
 
-          <motion.div variants={item} className="mt-10">
+          {/* ✅ léger réduit pour éviter les débordements dans les sections "100svh" */}
+          <motion.div variants={item} className="mt-8">
             {children}
           </motion.div>
         </motion.div>
@@ -163,11 +172,13 @@ function Card({
   );
 }
 
+/** ✅ Zone 1 : Alpha (avec photo) + mini liste collaborateurs en bas */
 function TeamCard({
   name,
   role,
   img,
   tags,
+  collaborators = [],
   pos = "50% 50%",
   zoom = 0.92,
 }: {
@@ -175,6 +186,7 @@ function TeamCard({
   role: string;
   img: string;
   tags: string[];
+  collaborators?: Array<{ name: string; role: string }>;
   pos?: string;
   zoom?: number;
 }) {
@@ -182,7 +194,7 @@ function TeamCard({
     <motion.div
       whileHover={{ y: -6 }}
       transition={{ type: "spring", stiffness: 220, damping: 18 }}
-      className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white/75 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur"
+      className="group relative h-full overflow-hidden rounded-3xl border border-slate-200 bg-white/75 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur"
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -194,6 +206,7 @@ function TeamCard({
       />
 
       <div className="relative grid grid-cols-[220px_1fr]">
+        {/* left */}
         <div className="relative">
           <div
             className="absolute inset-0"
@@ -218,10 +231,6 @@ function TeamCard({
                 transform: `scale(${zoom})`,
               }}
               className="p-3"
-              onError={(e) => {
-                const el = e.currentTarget as HTMLImageElement;
-                el.src = "/placeholder-avatar.png";
-              }}
             />
           </div>
 
@@ -234,7 +243,8 @@ function TeamCard({
           </div>
         </div>
 
-        <div className="relative p-6">
+        {/* right */}
+        <div className="relative flex flex-col p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-lg font-semibold text-slate-900">{name}</p>
@@ -249,12 +259,12 @@ function TeamCard({
                 border: `1px solid rgba(10,47,115,0.15)`,
               }}
             >
-              Équipe Mission
+              Directeur de mission
             </div>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {tags.map((t) => (
+            {tags.slice(0, 3).map((t) => (
               <span
                 key={t}
                 className="rounded-full px-3 py-1 text-xs"
@@ -273,13 +283,139 @@ function TeamCard({
             <BadgeCheck size={16} style={{ color: COLORS.blue2 }} />
             Équipe pluridisciplinaire • Confidentialité • Indépendance
           </div>
+
+          {/* ✅ mini-liste collaborateurs pour équilibrer la hauteur avec Zone 2 */}
+          {collaborators.length > 0 && (
+            <>
+              <div className="mt-5 h-px w-full bg-slate-200/80" />
+              <div className="mt-4">
+                <p className="text-xs font-semibold text-slate-700">
+                  Collaborateurs (sous la supervision)
+                </p>
+
+                <div className="mt-3 grid gap-2">
+                  {collaborators.slice(0, 2).map((c) => (
+                    <div
+                      key={c.name}
+                      className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl"
+                          style={{
+                            background:
+                              "linear-gradient(135deg, rgba(10,47,115,0.10), rgba(63,95,153,0.10))",
+                            border: "1px solid rgba(201,201,201,0.35)",
+                          }}
+                        >
+                          <User size={16} style={{ color: COLORS.blue }} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">
+                            {c.name}
+                          </p>
+                          <p className="mt-0.5 text-sm text-slate-700">{c.role}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </motion.div>
   );
 }
 
-function Navbar({ presentation }: { presentation: any }) {
+/** ✅ Zone 2 : Liste compacte + scroll interne (plus de débordement) */
+function TeamList({
+  members,
+  maxItems = 5,
+}: {
+  members: Array<{
+    name: string;
+    role: string;
+    tags?: string[];
+  }>;
+  maxItems?: number;
+}) {
+  return (
+    <div className="h-full rounded-3xl border border-slate-200 bg-white/75 p-5 shadow-[0_10px_30px_rgba(2,6,23,0.06)] backdrop-blur md:p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-slate-900">Autres membres</p>
+        <span
+          className="rounded-full px-3 py-1 text-xs font-semibold"
+          style={{
+            color: COLORS.blue,
+            background: "rgba(10,47,115,0.08)",
+            border: `1px solid rgba(10,47,115,0.15)`,
+          }}
+        >
+          Équipe Mission
+        </span>
+      </div>
+
+      {/* ✅ Scroll interne : évite le débordement dans la section 100svh */}
+      <div className="max-h-[460px] overflow-auto overscroll-contain pr-1">
+        <div className="grid gap-2">
+          {members.slice(0, maxItems).map((m) => (
+            <div
+              key={m.name}
+              className="rounded-2xl border border-slate-200 bg-white/70 p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {m.name}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">{m.role}</p>
+                </div>
+              </div>
+
+              {m.tags?.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {m.tags.slice(0, 2).map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-full px-3 py-1 text-xs"
+                      style={{
+                        background: "rgba(63,95,153,0.08)",
+                        border: `1px solid rgba(201,201,201,0.45)`,
+                        color: "rgba(2,6,23,0.75)",
+                      }}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center gap-2 text-xs text-slate-600">
+        <BadgeCheck size={16} style={{ color: COLORS.blue2 }} />
+        Équipe pluridisciplinaire • Confidentialité • Indépendance
+      </div>
+    </div>
+  );
+}
+
+function Navbar({
+  presentation,
+  collapsed,
+  setCollapsed,
+}: {
+  presentation: any;
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
   const links = [
     { id: "home", label: "Accueil" },
     { id: "context", label: "Contexte" },
@@ -289,16 +425,53 @@ function Navbar({ presentation }: { presentation: any }) {
     { id: "plan", label: "Déroulement" },
   ];
 
+  if (collapsed && open) setOpen(false);
+
   return (
     <div className="pointer-events-none fixed left-0 right-0 top-0 z-50">
-      <div className="pointer-events-auto mx-auto flex max-w-6xl items-center justify-between px-6 py-4 md:px-10">
-        <div className="flex items-center gap-3">
-          <div className="relative h-10 w-28">
-            <Image src="/adoc-logo.png" alt="ADOC" fill className="object-contain" />
-          </div>
-        </div>
+      <motion.div
+        className="pointer-events-auto mx-auto flex max-w-6xl items-center justify-between px-6 md:px-10"
+        animate={{
+          paddingTop: collapsed ? 10 : 16,
+          paddingBottom: collapsed ? 10 : 16,
+        }}
+        transition={{ type: "spring", stiffness: 220, damping: 24 }}
+      >
+        {/* LEFT (logo) */}
+        <motion.div
+          className="flex items-center gap-3 rounded-full border border-slate-200 bg-white/70 shadow-sm backdrop-blur"
+          animate={{
+            paddingLeft: collapsed ? 10 : 14,
+            paddingRight: collapsed ? 10 : 14,
+            paddingTop: collapsed ? 8 : 10,
+            paddingBottom: collapsed ? 8 : 10,
+          }}
+          transition={{ type: "spring", stiffness: 220, damping: 24 }}
+        >
+          <motion.div
+            className="relative"
+            animate={{ width: collapsed ? 80 : 112, height: collapsed ? 28 : 40 }}
+            transition={{ type: "spring", stiffness: 220, damping: 24 }}
+          >
+            <Image
+              src="/adoc-logo.png"
+              alt="ADOC"
+              fill
+              className="object-contain"
+            />
+          </motion.div>
+        </motion.div>
 
-        <nav className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/70 p-2 shadow-sm backdrop-blur md:flex">
+        {/* CENTER (desktop links) */}
+        <motion.nav
+          className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/70 p-2 shadow-sm backdrop-blur md:flex"
+          animate={{
+            opacity: collapsed ? 0 : 1,
+            scale: collapsed ? 0.98 : 1,
+            pointerEvents: collapsed ? ("none" as any) : ("auto" as any),
+          }}
+          transition={{ duration: 0.18 }}
+        >
           {links.map((l) => (
             <a
               key={l.id}
@@ -308,52 +481,137 @@ function Navbar({ presentation }: { presentation: any }) {
               {l.label}
             </a>
           ))}
-        </nav>
+        </motion.nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        {/* RIGHT (actions) */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => presentation.setEnabled(!presentation.enabled)}
-            className="rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition"
-            style={{
-              background: presentation.enabled
-                ? "rgba(10,47,115,0.12)"
-                : `linear-gradient(135deg, ${COLORS.blue}, ${COLORS.blue2})`,
-              color: presentation.enabled ? COLORS.blue : "white",
-              border: presentation.enabled ? "1px solid rgba(10,47,115,0.15)" : "none",
-            }}
+            onClick={() => setCollapsed(!collapsed)}
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-white"
           >
-            {presentation.enabled ? "Quitter présentation" : "Mode présentation"}
+            {collapsed ? (
+              <>
+                <Menu size={18} /> Menu
+              </>
+            ) : (
+              <>
+                <X size={18} /> Réduire
+              </>
+            )}
           </button>
 
-          <a
-            href="#plan"
-            className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
-            style={{
-              background: `linear-gradient(135deg, ${COLORS.blue}, ${COLORS.blue2})`,
-            }}
+          <div className="hidden items-center gap-3 md:flex">
+            <button
+              onClick={() => presentation.setEnabled(!presentation.enabled)}
+              className="rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition"
+              style={{
+                background: presentation.enabled
+                  ? "rgba(10,47,115,0.12)"
+                  : `linear-gradient(135deg, ${COLORS.blue}, ${COLORS.blue2})`,
+                color: presentation.enabled ? COLORS.blue : "white",
+                border: presentation.enabled
+                  ? "1px solid rgba(10,47,115,0.15)"
+                  : "none",
+              }}
+            >
+              {presentation.enabled ? "Quitter présentation" : "Mode présentation"}
+            </button>
+
+            <a
+              href="#plan"
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              style={{
+                background: `linear-gradient(135deg, ${COLORS.blue}, ${COLORS.blue2})`,
+              }}
+            >
+              Prochaines étapes
+            </a>
+          </div>
+
+          {/* MOBILE MENU */}
+          <button
+            onClick={() => setOpen(!open)}
+            className="pointer-events-auto inline-flex items-center justify-center rounded-full border border-slate-200 bg-white/70 p-3 shadow-sm backdrop-blur hover:bg-white md:hidden"
           >
-            Prochaines étapes
-          </a>
+            {open ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
-      </div>
+      </motion.div>
+
+      {/* dropdown mobile */}
+      {open && (
+        <div className="pointer-events-auto mx-auto mt-2 max-w-6xl px-6 md:hidden">
+          <div className="rounded-3xl border border-slate-200 bg-white/90 p-3 shadow-sm backdrop-blur">
+            <div className="grid gap-1">
+              {links.map((l) => (
+                <a
+                  key={l.id}
+                  href={`#${l.id}`}
+                  onClick={() => setOpen(false)}
+                  className="rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  {l.label}
+                </a>
+              ))}
+            </div>
+
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => {
+                  presentation.setEnabled(!presentation.enabled);
+                  setOpen(false);
+                }}
+                className="flex-1 rounded-2xl px-4 py-3 text-sm font-semibold text-white"
+                style={{
+                  background: `linear-gradient(135deg, ${COLORS.blue}, ${COLORS.blue2})`,
+                }}
+              >
+                {presentation.enabled ? "Quitter présentation" : "Mode présentation"}
+              </button>
+
+              <a
+                href="#plan"
+                onClick={() => setOpen(false)}
+                className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-800"
+              >
+                Prochaines étapes
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function Page() {
-  
-  const { scrollYProgress } = useScroll();
+  const scrollRef = useRef<HTMLElement | null>(null);
+
+  const { scrollY, scrollYProgress } = useScroll({
+    container: scrollRef as any,
+  });
   const bar = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
-  // ✅ PRESENTATION MODE
-const scrollRef = useRef<HTMLElement | null>(null);
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
-const sections = ["home", "context", "goals", "refs", "team", "plan"];
-const presentation = usePresentationMode(sections, scrollRef as any);
+  useMotionValueEvent(scrollY, "change", (v) => {
+    const threshold = window.innerHeight * 0.7;
+    setNavCollapsed(v > threshold);
+  });
+
+  const sections = ["home", "context", "goals", "refs", "team", "plan"];
+  const presentation = usePresentationMode(sections, scrollRef as any);
 
   return (
-    <main className="h-[100svh] w-full snap-y snap-mandatory overflow-y-auto scroll-smooth bg-white">
-      <Navbar presentation={presentation} />
+    <main
+      ref={scrollRef as any}
+      className="h-[100svh] w-full snap-y snap-mandatory overflow-y-auto scroll-smooth bg-white"
+    >
+      <Navbar
+        presentation={presentation}
+        collapsed={navCollapsed}
+        setCollapsed={setNavCollapsed}
+      />
 
       {/* progress bar */}
       <div className="fixed left-0 top-0 z-50 h-1 w-full bg-transparent">
@@ -389,7 +647,12 @@ const presentation = usePresentationMode(sections, scrollRef as any);
         </div>
 
         <div className="relative mx-auto flex h-full max-w-6xl flex-col justify-center px-6 md:px-10">
-          <motion.div variants={container} initial="hidden" animate="show" className="max-w-4xl">
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="max-w-4xl"
+          >
             <motion.p
               variants={item}
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur"
@@ -402,10 +665,14 @@ const presentation = usePresentationMode(sections, scrollRef as any);
               variants={item}
               className="mt-6 text-balance text-4xl font-semibold tracking-tight text-slate-900 md:text-6xl"
             >
-              Audit de l’exploitation <span style={{ color: COLORS.blue }}>en régie intéressée</span>
+              Audit de l’exploitation{" "}
+              <span style={{ color: COLORS.blue }}>en régie intéressée</span>
             </motion.h1>
 
-            <motion.p variants={item} className="mt-5 max-w-3xl text-pretty text-base leading-relaxed text-slate-700 md:text-lg">
+            <motion.p
+              variants={item}
+              className="mt-5 max-w-3xl text-pretty text-base leading-relaxed text-slate-700 md:text-lg"
+            >
               Tronçons AIBD–Mbour • AIBD–Thiès–Touba • Pont à péage de Foundiougne
               <br />
               <span className="font-medium">Période auditée :</span> 1er juillet 2021 – 30 juin 2025
@@ -435,7 +702,7 @@ const presentation = usePresentationMode(sections, scrollRef as any);
         id="context"
         eyebrow="Cadre de la mission"
         title="Contexte de la mission"
-        subtitle="La mission s’inscrit dans le cadre du contrat de régie intéressée relatif à l’exploitation d’infrastructures à péage, avec des exigences de transparence, traçabilité et conformité."
+        subtitle="La mission s’inscrit dans le cadre du suivi et du contrôle de l'execution du contrat de régie intéressée relatif à l’exploitation d’infrastructures à péage. Elle intervient dans un contexte d’exigence renforcée de transparence, de traçabilité et de sécurisation des opérations, notamment celles liées au trafic, à l’enregistrement des transactions et à la collecte des recettes. À ce titre, l’audit vise à apprécier la fiabilité du dispositif d’exploitation et la cohérence entre les données du système, les encaissements réalisés et les reportings produits."
       >
         <div className="grid gap-4 md:grid-cols-3">
           <Card
@@ -466,22 +733,22 @@ const presentation = usePresentationMode(sections, scrollRef as any);
         <div className="grid gap-4 md:grid-cols-2">
           <Card
             icon={<CheckCircle2 size={22} style={{ color: COLORS.blue }} />}
-            title="Fiabilité des recettes"
+            title="Audit Financier"
             text="Exactitude, traçabilité et cohérence entre trafic réel, transactions enregistrées et recettes perçues."
           />
           <Card
             icon={<CheckCircle2 size={22} style={{ color: COLORS.blue }} />}
-            title="Exhaustivité"
+            title="Audit du SI"
             text="S’assurer que toutes les transactions effectuées au péage sont bien intégrées dans le système central."
           />
           <Card
             icon={<Scale size={22} style={{ color: COLORS.blue }} />}
-            title="Conformité"
+            title="Audit Administratif"
             text="Vérifier l’alignement aux obligations contractuelles, aux textes applicables et aux procédures internes."
           />
           <Card
             icon={<ShieldCheck size={22} style={{ color: COLORS.blue }} />}
-            title="Amélioration"
+            title="Audit Organisationnel"
             text="Identifier les zones de risque et proposer des recommandations opérationnelles, pragmatiques et priorisées."
           />
         </div>
@@ -498,7 +765,7 @@ const presentation = usePresentationMode(sections, scrollRef as any);
           <Card
             icon={<FileText size={22} style={{ color: COLORS.blue }} />}
             title="Référentiels"
-            text="Contrat de régie intéressée et annexes • Procédures internes • Dispositifs de contrôle."
+            text="Normes ISSAI • Normes ISA • Normes ISRS • COSO • ISO 9001 • ISO 31000 • ISO 27001 ."
           />
           <Card
             icon={<Scale size={22} style={{ color: COLORS.blue }} />}
@@ -508,41 +775,65 @@ const presentation = usePresentationMode(sections, scrollRef as any);
         </div>
       </Section>
 
-      {/* ÉQUIPE */}
-      <Section id="team" eyebrow="Organisation & points de contact" title="Équipe de mission" subtitle="Photo">
-        <div className="grid gap-4 md:grid-cols-2">
-          <TeamCard
-            name="Alpha Gueye"
-            role="Chef de mission"
-            img="/team-1.png"
-            zoom={0.82}
-            pos="50% 50%"
-            tags={["Pilotage", "Supervision", "Validation livrables"]}
-          />
-          <TeamCard
-            name="Mouhamadou Mansour SOW"
-            role="Auditeur senior — Audit financier & recettes"
-            img="/team-2.png"
-            zoom={0.92}
-            pos="50% 50%"
-            tags={["Recettes", "Exhaustivité", "Exactitude"]}
-          />
-          <TeamCard
-            name="Fatou Kine Gueye"
-            role="Auditeur — Contrôle interne & organisation"
-            img="/team-3.png"
-            zoom={0.92}
-            pos="50% 55%"
-            tags={["Procédures", "Séparation tâches", "Supervision"]}
-          />
-          <TeamCard
-            name="Mariama Diallo"
-            role="Auditeur SI / Data — Systèmes de péage"
-            img="/team-4.png"
-            zoom={0.9}
-            pos="50% 55%"
-            tags={["Transactions", "Trafic", "Sécurité accès"]}
-          />
+      {/* ✅ ÉQUIPE : on force une hauteur commune et on met scroll interne Zone2 */}
+      <Section
+        id="team"
+        eyebrow="Organisation & points de contact"
+        title="Équipe de mission"
+        subtitle="Equipe"
+      >
+        <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
+          {/* Zone 1 */}
+          <div className="h-full">
+            <TeamCard
+              name="Alpha Youssoupha GUEYE — 22 ans"
+              role="Expert-comptable diplômé • Directeur de mission"
+              img="/team-1.png"
+              zoom={0.86}
+              pos="50% 50%"
+              tags={["Pilotage", "Supervision", "Validation livrables", "Qualité"]}
+              collaborators={[
+                { name: "Mouhamadou Mansour sow", role: "Préparation dossiers • Suivi pièces" },
+                { name: "Ndeye Fatou Ndiaye", role: "Contrôles • Documentation" },
+              ]}
+            />
+          </div>
+
+          {/* Zone 2 */}
+          <div className="h-full">
+            <TeamList
+              members={[
+                {
+                  name: "Mouhamadou DIOUCK — 20 ans",
+                  role: "Auditeur financier • Chef de mission",
+                  tags: ["Coordination terrain", "Reporting"],
+                },
+                {
+                  name: "Babacar Sedikh FALL — 11 ans",
+                  role: "Auditeur",
+                  tags: ["CAC", "Contrôle Interne"],
+                },
+                {
+                  name: "Djibril GUEYE — 18 ans",
+                  role: "Spécialiste en système d’information",
+                  tags: ["SI péage", "Sécurité accès"],
+                },
+                {
+                  name: "Dominique NDONG — 47 ans",
+                  role: "Ingénieur en génie civil",
+                  tags: ["Visites terrain", "Constats techniques"],
+                },
+                {
+                  name: "Dramane Camara — 5 ans",
+                  role: "Auditeur",
+                  tags: ["Contrôle interne", "Tests"],
+                },
+                // ✅ si tu ajoutes encore des gens, Zone 2 ne débordera pas (scroll interne)
+                // { name: "...", role: "...", tags: ["...", "..."] },
+              ]}
+              maxItems={10}
+            />
+          </div>
         </div>
       </Section>
 
@@ -598,7 +889,7 @@ const presentation = usePresentationMode(sections, scrollRef as any);
                 <span className="font-semibold">Communication</span> fluide et continue
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white/60 p-4 text-sm text-slate-700">
-                <span className="font-semibold">Respect</span> du calendrier prévisionnel
+                <span className="font-semibold">Calendrier</span> 09 février au 09 mai 2026
               </div>
             </div>
           </div>
